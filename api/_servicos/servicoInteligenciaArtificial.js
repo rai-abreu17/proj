@@ -11,8 +11,7 @@ const MENSAGEM_ERRO_API_VETOR = "Falha ao consultar API de geração de vetores 
 const MENSAGEM_ERRO_API_TEXTO = "Falha ao consultar API de geração de texto do Gemini.";
 const MENSAGEM_RESPOSTA_VAZIA = "Não foi possível gerar uma resposta no momento.";
 
-const TEMPERATURA_CONTROLADA = 0.2;
-const MAXIMO_TOKENS = 1024; // Garantia de espaço para não cortar frases no meio
+const TEMPERATURA_CONTROLADA = 0.3; // Aumentada ligeiramente para fluidez natural sem cortes
 
 /**
  * Gera o vetor de incorporação (embedding) para um texto fornecido (usado por webhooks se necessário).
@@ -52,7 +51,7 @@ export async function gerarVetorIncorporacao(textoBusca) {
 }
 
 /**
- * Helper interno para executar a chamada HTTP à API de geração de texto do Gemini com temperatura controlada (DRY).
+ * Helper interno para executar a chamada HTTP à API de geração de texto do Gemini sem travas de tokens (DRY).
  */
 async function executarChamadaGeminiTexto(promptCompleto) {
   const chaveApi = process.env.GEMINI_API_KEY;
@@ -67,7 +66,7 @@ async function executarChamadaGeminiTexto(promptCompleto) {
     ],
     generationConfig: {
       temperature: TEMPERATURA_CONTROLADA,
-      maxOutputTokens: MAXIMO_TOKENS,
+      // Removida qualquer trava de maxOutputTokens para garantir que o modelo conclua a frase até o ponto final
     },
   };
 
@@ -87,7 +86,7 @@ async function executarChamadaGeminiTexto(promptCompleto) {
 
 /**
  * Gera a resposta baseada em IA formatada especificamente para o TÉCNICO ou ANALISTA DO SICAR.
- * Foco em respostas limpas, naturais, curtas (1 a 2 parágrafos) e sem formatações agressivas de markdown.
+ * Foco em respostas limpas, naturais, curtas (1 a 2 parágrafos) e completas até o ponto final.
  */
 export async function gerarRespostaParaTecnico({ pergunta, contextoImovel, contextoAlerta }) {
   const promptSistema = `Você é um assistente especialista no Sistema de Cadastro Ambiental Rural (SICAR) e no Código Florestal Brasileiro (Lei 12.651/2012).
@@ -99,7 +98,7 @@ Regras de Saída:
 1. Responda em português (pt-BR) de forma extremamente natural, clara e objetiva, ideal para um chat ao vivo.
 2. É expressamente proibido gerar textos longos ou utilizar formatações complexas de markdown (como ###, asteriscos, negritos excessivos ou listas pontuadas).
 3. Seja sucinto e direto ao ponto: utilize no máximo 1 a 2 parágrafos curtos para explicar a situação e citar a base legal (Lei 12.651/2012).
-4. Conclua o pensamento de forma fluida até o ponto final.
+4. Conclua o pensamento de forma fluida e completa até o ponto final. Nunca corte a explicação pela metade.
 
 Pergunta do usuário: ${pergunta}`;
 
@@ -108,7 +107,7 @@ Pergunta do usuário: ${pergunta}`;
 
 /**
  * Gera a resposta baseada em IA formatada especificamente para o PRODUTOR RURAL (ex: Seu Raimundo).
- * Foco em linguagem extremamente humana, simples, calorosa e sem jargões complexos.
+ * Foco em linguagem extremamente humana, simples, calorosa, sem jargões complexos e completa até o ponto final.
  */
 export async function gerarRespostaParaProdutor({ pergunta, contextoImovel, contextoAlerta, trechosLegislacao }) {
   const trechosFormatados = (trechosLegislacao || [])
@@ -127,7 +126,7 @@ Objetivo e Regras de Saída:
 2. Explicar o problema de forma incrivelmente simples, traduzindo qualquer jargão técnico para o cotidiano do campo.
 3. Explicar exatamente o que ele precisa fazer para resolver a situação (ex: procurar o técnico do sindicato ou engenheiro para ajustar o polígono ou compensar a reserva legal), tranquilizando-o sobre multas e crédito rural.
 4. Jamais utilize termos em inglês, códigos cruas ou citações de artigos de lei difíceis de ler. Traduza a essência da lei para linguagem cidadã.
-5. Responda em português (pt-BR) de forma limpa e natural. É expressamente proibido usar qualquer formatação de markdown (como asteriscos ou #). Escreva apenas 1 ou 2 parágrafos curtos, no formato de uma mensagem leve de WhatsApp. Conclua a frase até o ponto final.
+5. Responda em português (pt-BR) de forma limpa, natural e completa. É expressamente proibido usar qualquer formatação de markdown (como asteriscos ou #). Escreva uma mensagem explicativa leve de WhatsApp, com início, meio e fim (cerca de 1 a 2 parágrafos). Conclua a frase perfeitamente até o ponto final. Nunca deixe o texto pela metade.
 
 Dúvida enviada pelo produtor no WhatsApp: "${pergunta}"`;
 
