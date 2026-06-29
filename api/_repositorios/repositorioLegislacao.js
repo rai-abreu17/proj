@@ -1,4 +1,4 @@
-import { clienteSupabase } from "./clienteSupabase.js";
+import { clienteSupabase, validarConexaoSupabase } from "./clienteSupabase.js";
 
 const TABELA_LEI_CHUNKS = "lei_chunks";
 const FUNCAO_RPC_SIMILARIDADE = "match_lei_chunks";
@@ -15,6 +15,7 @@ const MENSAGEM_ALERTA_RPC_INDISPONIVEL = "Função RPC de similaridade não disp
  */
 export async function buscarTrechosRecentes() {
   try {
+    validarConexaoSupabase();
     const { data: trechos, error: erroBusca } = await clienteSupabase
       .from(TABELA_LEI_CHUNKS)
       .select("*")
@@ -36,6 +37,7 @@ export async function buscarTrechosRecentes() {
  */
 export async function buscarTrechosPorSimilaridade(vetorBusca) {
   try {
+    validarConexaoSupabase();
     const { data: trechos, error: erroRpc } = await clienteSupabase.rpc(FUNCAO_RPC_SIMILARIDADE, {
       query_embedding: vetorBusca,
       match_threshold: LIMITE_SIMILARIDADE_MINIMA,
@@ -59,6 +61,7 @@ export async function buscarTrechosPorSimilaridade(vetorBusca) {
  */
 export async function buscarTrechosPorPalavraChave(palavraChave) {
   try {
+    validarConexaoSupabase();
     const { data: trechos, error: erroBusca } = await clienteSupabase
       .from(TABELA_LEI_CHUNKS)
       .select("*")
