@@ -1,4 +1,5 @@
 import { gerarRespostaParaProdutor } from "./_servicos/servicoInteligenciaArtificial.js";
+import { URLSearchParams } from "url";
 
 const METODO_POST = "POST";
 const STATUS_SUCESSO = 200;
@@ -32,10 +33,69 @@ const ALERTA_DEMONSTRACAO = {
  * Cria o XML no padrão TwiML do Twilio para responder via WhatsApp.
  */
 function gerarXmlTwilio(textoMensagem) {
+  // Escapar caracteres especiais de XML para evitar quebra do TwiML
+  const textoSeguro = textoMensagem
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Message>${textoMensagem}</Message>
+  <Message>${textoSeguro}</Message>
 </Response>`;
+}
+
+/**
+ * Faz o parse manual do corpo da requisição quando o Twilio envia como
+ * application/x-www-form-urlencoded (formato padrão do webhook do Twilio).
+ * A Vercel nem sempre faz o parse automático desse content-type.
+ */
+async function extrairCorpoTwilio(requisicao) {
+  // Se o body já foi parseado como objeto (ex: JSON ou form automático), usa direto
+  if (requisicao.body && typeof requisicao.body === "object" && requisicao.body.Body !== undefined) {
+    return requisicao.body;
+  }
+
+  // Se o body é uma string url-encoded, faz o parse manual
+  if (requisicao.body && typeof requisicao.body === "string") {
+    const parametros = new URLSearchParams(requisicao.body);
+    const resultado = {};
+    for (const [chave, valor] of parametros.entries()) {
+      resultado[chave] = valor;
+    }
+    return resultado;
+  }
+
+  // Caso o body ainda não foi lido (stream), lê e parseia
+  return new Promise((resolver, rejeitar) => {
+    const pedacos = [];
+    requisicao.on("data", (pedaco) => pedacos.push(pedaco));
+    requisicao.on("end", () => {
+      try {
+        const corpoCru = Buffer.concat(pedacos).toString("utf-8");
+
+        // Tenta JSON primeiro
+        try {
+          resolver(JSON.parse(corpoCru));
+          return;
+        } catch {
+          // Não é JSON, tenta form-urlencoded
+        }
+
+        // Parse de form-urlencoded
+        const parametros = new URLSearchParams(corpoCru);
+        const resultado = {};
+        for (const [chave, valor] of parametros.entries()) {
+          resultado[chave] = valor;
+        }
+        resolver(resultado);
+      } catch (erro) {
+        rejeitar(erro);
+      }
+    });
+    requisicao.on("error", rejeitar);
+  });
 }
 
 /**
@@ -48,22 +108,43 @@ export default async function manipulador(requisicao, resposta) {
   }
 
   try {
-    // O Twilio envia os dados no corpo da requisição, onde a propriedade Body contém a mensagem do WhatsApp
-    const corpoTwilio = requisicao.body || {};
-    const perguntaProdutor = corpoTwilio.Body ? corpoTwilio.Body.trim() : "";
+    // Extrai o corpo tratando corretamente o content-type do Twilio (url-encoded)
+    const corpoTwilio = await extrairCorpoTwilio(requisicao);
+
+    console.log("Webhook Twilio recebido. Campos presentes:", Object.keys(corpoTwilio || {}));
+    console.log("Body da mensagem:", corpoTwilio?.Body);
+    console.log("Tipo da mídia (se houver):", corpoTwilio?.MediaContentType0);
+    console.log("URL da mídia (se houver):", corpoTwilio?.MediaUrl0);
+
+    const perguntaProdutor = corpoTwilio?.Body ? corpoTwilio.Body.trim() : "";
+
+    // Detecta se é uma mensagem de áudio sem texto (o produtor enviou um áudio)
+    const ehMensagemDeAudio = corpoTwilio?.NumMedia && parseInt(corpoTwilio.NumMedia, 10) > 0
+      && (corpoTwilio?.MediaContentType0 || "").startsWith("audio/");
+
+    if (!perguntaProdutor && ehMensagemDeAudio) {
+      // O produtor enviou um áudio — informamos que ainda não conseguimos escutar áudios
+      const respostaAudio = "Oi, Seu Raimundo! Recebi seu áudio, mas no momento eu só consigo ler mensagens de texto. Pode digitar sua dúvida aqui que eu te ajudo direitinho!";
+      resposta.setHeader(CABECALHO_TIPO_CONTEUDO, TIPO_CONTEUDO_XML);
+      return resposta.status(STATUS_SUCESSO).send(gerarXmlTwilio(respostaAudio));
+    }
 
     if (!perguntaProdutor) {
       resposta.setHeader(CABECALHO_TIPO_CONTEUDO, TIPO_CONTEUDO_XML);
       return resposta.status(STATUS_SUCESSO).send(gerarXmlTwilio(RESPOSTA_MENSAGEM_VAZIA));
     }
 
+    console.log("Consultando Gemini com a pergunta do produtor:", perguntaProdutor);
+
     // Consulta o Gemini diretamente com o prompt acolhedor e simples para o PRODUTOR RURAL
     const textoResposta = await gerarRespostaParaProdutor({
       pergunta: perguntaProdutor,
       contextoImovel: IMOVEL_DEMONSTRACAO,
       contextoAlerta: ALERTA_DEMONSTRACAO,
-      trechosLegislacao: [], // Sem dependência de banco de dados
+      trechosLegislacao: [],
     });
+
+    console.log("Resposta do Gemini gerada com sucesso. Tamanho:", textoResposta?.length, "caracteres");
 
     // Retorna a resposta formatada em TwiML para o Twilio encaminhar ao WhatsApp do Seu Raimundo
     resposta.setHeader(CABECALHO_TIPO_CONTEUDO, TIPO_CONTEUDO_XML);

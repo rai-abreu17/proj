@@ -53,26 +53,38 @@ export default async function manipulador(requisicao, resposta) {
   }
 
   try {
+    console.log("Iniciando envio proativo ao produtor...");
+    console.log("Remetente:", remetente);
+    console.log("Destinatário:", destinatario);
+    console.log("URL do áudio configurada:", urlAudio || "(nenhuma)");
+
     // Consulta o Gemini dinamicamente para gerar a explicação com base no contexto da página do analista
     const explicacaoInteligente = await gerarRespostaParaProdutor({
       pergunta: "Olá Gemini, resuma o problema do meu cadastro ambiental e o que preciso consertar no Sítio Boa Esperança para evitar multas.",
       contextoImovel: IMOVEL_DEMONSTRACAO,
       contextoAlerta: ALERTA_DEMONSTRACAO,
-      trechosLegislacao: [], // Sem dependência de banco de dados
+      trechosLegislacao: [],
     });
+
+    console.log("Texto gerado pelo Gemini. Tamanho:", explicacaoInteligente?.length, "caracteres");
 
     const cliente = twilio(sid, token);
     
     // Constrói o payload do Twilio de forma inteligente:
-    // Se não existe áudio hospedado, enviamos apenas o texto explicativo gerado pelo Gemini para não falhar o envio!
+    // Se não existe áudio hospedado com URL real, enviamos apenas o texto explicativo
     const payloadEnvio = {
       from: remetente,
       to: destinatario,
       body: explicacaoInteligente,
     };
 
-    if (urlAudio && urlAudio.startsWith("http")) {
+    // Só anexa áudio se a URL estiver configurada com uma URL válida e não for a URL placeholder padrão
+    const ehUrlPlaceholder = !urlAudio || urlAudio.includes("seu-deploy") || !urlAudio.startsWith("http");
+    if (!ehUrlPlaceholder) {
       payloadEnvio.mediaUrl = [urlAudio];
+      console.log("Áudio anexado ao envio:", urlAudio);
+    } else {
+      console.log("URL de áudio não configurada ou é placeholder. Enviando apenas texto.");
     }
 
     const mensagem = await cliente.messages.create(payloadEnvio);
