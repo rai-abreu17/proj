@@ -1,5 +1,4 @@
-import { buscarTrechosPorSimilaridade } from "./_repositorios/repositorioLegislacao.js";
-import { gerarVetorIncorporacao, gerarRespostaParaTecnico } from "./_servicos/servicoInteligenciaArtificial.js";
+import { gerarRespostaParaTecnico } from "./_servicos/servicoInteligenciaArtificial.js";
 
 const METODO_POST = "POST";
 const STATUS_SUCESSO = 200;
@@ -20,7 +19,8 @@ const RESPOSTA_FALLBACK_PADRAO = "Com base nos dados do imóvel Sítio Boa Esper
 
 /**
  * Endpoint serverless para tirar dúvidas com IA ao vivo (Fase 4).
- * Conecta-se ao Supabase para buscar trechos da legislação (lei_chunks) e ao Google Gemini para o TÉCNICO.
+ * Conecta-se diretamente ao Google Gemini, utilizando a vasta inteligência do modelo
+ * sobre o Código Florestal, sem depender de respostas ou buscas em banco de dados.
  */
 export default async function manipulador(requisicao, resposta) {
   if (requisicao.method !== METODO_POST) {
@@ -51,18 +51,11 @@ export default async function manipulador(requisicao, resposta) {
   }
 
   try {
-    // 1. Geração do vetor de incorporação (embedding) para a pergunta do técnico
-    const vetorBusca = await gerarVetorIncorporacao(pergunta);
-
-    // 2. Busca dos trechos mais relevantes no banco de dados Supabase (tabela lei_chunks)
-    const trechosLegislacao = await buscarTrechosPorSimilaridade(vetorBusca);
-
-    // 3. Geração da resposta contextualizada via Gemini com o prompt específico de TÉCNICO
+    // Consulta direta e puramente executada pelo Google Gemini, sem passar por banco de dados
     const textoResposta = await gerarRespostaParaTecnico({
       pergunta,
       contextoImovel,
       contextoAlerta,
-      trechosLegislacao,
     });
 
     return resposta.status(STATUS_SUCESSO).json({ resposta: textoResposta });

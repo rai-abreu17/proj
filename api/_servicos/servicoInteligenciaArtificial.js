@@ -10,10 +10,9 @@ const MENSAGEM_ERRO_CHAVE_AUSENTE = "Chave de API do Gemini não configurada no 
 const MENSAGEM_ERRO_API_VETOR = "Falha ao consultar API de geração de vetores do Gemini.";
 const MENSAGEM_ERRO_API_TEXTO = "Falha ao consultar API de geração de texto do Gemini.";
 const MENSAGEM_RESPOSTA_VAZIA = "Não foi possível gerar uma resposta no momento.";
-const MENSAGEM_SEM_TRECHOS = "Nenhum trecho específico recuperado.";
 
 /**
- * Gera o vetor de incorporação (embedding) para um texto fornecido.
+ * Gera o vetor de incorporação (embedding) para um texto fornecido (usado por webhooks se necessário).
  */
 export async function gerarVetorIncorporacao(textoBusca) {
   const chaveApi = process.env.GEMINI_API_KEY;
@@ -81,21 +80,15 @@ async function executarChamadaGeminiTexto(promptCompleto) {
 
 /**
  * Gera a resposta baseada em IA formatada especificamente para o TÉCNICO ou ANALISTA DO SICAR.
- * Foco em base legal, detalhes técnicos e formalidade profissional.
+ * Foco na vasta inteligência do Gemini sobre o Código Florestal, sem depender de banco de dados.
  */
-export async function gerarRespostaParaTecnico({ pergunta, contextoImovel, contextoAlerta, trechosLegislacao }) {
-  const trechosFormatados = trechosLegislacao
-    .map((item) => `[Doc: ${item.documento}, Pág: ${item.pagina}] ${item.chunk}`)
-    .join("\n\n");
-
+export async function gerarRespostaParaTecnico({ pergunta, contextoImovel, contextoAlerta }) {
   const promptSistema = `Você é um assistente especialista no Sistema de Cadastro Ambiental Rural (SICAR) e no Código Florestal Brasileiro (Lei 12.651/2012).
-Objetivo: Responder à dúvida do analista/técnico sobre o imóvel e o alerta detectado.
+Objetivo: Responder à dúvida do analista/técnico sobre o imóvel e o alerta detectado com base no seu conhecimento avançado da legislação brasileira.
 Dados do Imóvel: ${JSON.stringify(contextoImovel)}
 Dados do Alerta: ${JSON.stringify(contextoAlerta)}
-Trechos da Legislação Relevantes (Banco de Dados):
-${trechosFormatados || MENSAGEM_SEM_TRECHOS}
 
-Regras: Responda em português (pt-BR), de forma clara, direta e em linguagem técnica acessível ao analista, citando a base legal apropriada e utilizando os trechos da legislação fornecidos. Evite longos discursos.
+Regras: Responda em português (pt-BR), de forma clara, direta e em linguagem técnica acessível ao analista, citando a base legal apropriada. Evite longos discursos.
 
 Pergunta do usuário: ${pergunta}`;
 
@@ -107,7 +100,7 @@ Pergunta do usuário: ${pergunta}`;
  * Foco em linguagem extremamente humana, simples, calorosa e sem jargões complexos.
  */
 export async function gerarRespostaParaProdutor({ pergunta, contextoImovel, contextoAlerta, trechosLegislacao }) {
-  const trechosFormatados = trechosLegislacao
+  const trechosFormatados = (trechosLegislacao || [])
     .map((item) => `[Doc: ${item.documento}, Pág: ${item.pagina}] ${item.chunk}`)
     .join("\n\n");
 
@@ -115,8 +108,8 @@ export async function gerarRespostaParaProdutor({ pergunta, contextoImovel, cont
 Público-alvo: Seu Raimundo (ou outro produtor rural), uma pessoa simples da roça que não entende jargões técnicos, jurídicos ou siglas complexas, e fica perdido sem saber como resolver a situação do seu cadastro.
 Dados do Imóvel: ${JSON.stringify(contextoImovel)}
 Dados do Alerta que gerou a pendência: ${JSON.stringify(contextoAlerta)}
-Trechos da Legislação de Apoio (Banco de Dados):
-${trechosFormatados || MENSAGEM_SEM_TRECHOS}
+Trechos da Legislação de Apoio (se aplicável):
+${trechosFormatados || "Nenhum trecho em anexo, utilize seu conhecimento nativo do Código Florestal."}
 
 Objetivo:
 1. Responder à dúvida do produtor rural com tom caloroso, atencioso e respeitoso (como se estivesse conversando no WhatsApp ou na varanda de casa).
