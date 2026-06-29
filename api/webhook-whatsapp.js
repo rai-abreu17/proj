@@ -1,5 +1,4 @@
-import { buscarTrechosPorSimilaridade } from "./_repositorios/repositorioLegislacao.js";
-import { gerarVetorIncorporacao, gerarRespostaParaProdutor } from "./_servicos/servicoInteligenciaArtificial.js";
+import { gerarRespostaParaProdutor } from "./_servicos/servicoInteligenciaArtificial.js";
 
 const METODO_POST = "POST";
 const STATUS_SUCESSO = 200;
@@ -41,6 +40,7 @@ function gerarXmlTwilio(textoMensagem) {
 
 /**
  * Webhook acionado pelo Twilio quando o produtor rural (Seu Raimundo) envia uma dúvida pelo WhatsApp.
+ * Totalmente desacoplado de banco de dados, utilizando puramente a inteligência nativa do Gemini.
  */
 export default async function manipulador(requisicao, resposta) {
   if (requisicao.method !== METODO_POST) {
@@ -57,21 +57,15 @@ export default async function manipulador(requisicao, resposta) {
       return resposta.status(STATUS_SUCESSO).send(gerarXmlTwilio(RESPOSTA_MENSAGEM_VAZIA));
     }
 
-    // 1. Gera o vetor de incorporação (embedding) para a pergunta do Seu Raimundo
-    const vetorBusca = await gerarVetorIncorporacao(perguntaProdutor);
-
-    // 2. Busca trechos da lei no Supabase (tabela lei_chunks)
-    const trechosLegislacao = await buscarTrechosPorSimilaridade(vetorBusca);
-
-    // 3. Consulta o Gemini com o prompt acolhedor e simples para o PRODUTOR RURAL
+    // Consulta o Gemini diretamente com o prompt acolhedor e simples para o PRODUTOR RURAL
     const textoResposta = await gerarRespostaParaProdutor({
       pergunta: perguntaProdutor,
       contextoImovel: IMOVEL_DEMONSTRACAO,
       contextoAlerta: ALERTA_DEMONSTRACAO,
-      trechosLegislacao,
+      trechosLegislacao: [], // Sem dependência de banco de dados
     });
 
-    // 4. Retorna a resposta formatada em TwiML para o Twilio encaminhar ao WhatsApp do Seu Raimundo
+    // Retorna a resposta formatada em TwiML para o Twilio encaminhar ao WhatsApp do Seu Raimundo
     resposta.setHeader(CABECALHO_TIPO_CONTEUDO, TIPO_CONTEUDO_XML);
     return resposta.status(STATUS_SUCESSO).send(gerarXmlTwilio(textoResposta));
   } catch (erro) {
