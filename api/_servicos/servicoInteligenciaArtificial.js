@@ -11,8 +11,7 @@ const MENSAGEM_ERRO_API_VETOR = "Falha ao consultar API de geração de vetores 
 const MENSAGEM_ERRO_API_TEXTO = "Falha ao consultar API de geração de texto do Gemini.";
 const MENSAGEM_RESPOSTA_VAZIA = "Não foi possível gerar uma resposta no momento.";
 
-const TEMPERATURA_EQUILIBRADA = 0.3;
-const MAXIMO_TOKENS = 1024;
+const TEMPERATURA_EQUILIBRADA = 0.4; // Um pouco mais de calor para gerar textos ainda mais ricos e completos
 
 /**
  * Gera o vetor de incorporação (embedding) para um texto fornecido (usado por webhooks se necessário).
@@ -52,7 +51,7 @@ export async function gerarVetorIncorporacao(textoBusca) {
 }
 
 /**
- * Helper interno para executar a chamada HTTP à API de geração de texto do Gemini (DRY).
+ * Helper interno para executar a chamada HTTP à API de geração de texto do Gemini sem trava de tokens (DRY).
  */
 async function executarChamadaGeminiTexto(promptCompleto) {
   const chaveApi = process.env.GEMINI_API_KEY;
@@ -67,7 +66,7 @@ async function executarChamadaGeminiTexto(promptCompleto) {
     ],
     generationConfig: {
       temperature: TEMPERATURA_EQUILIBRADA,
-      maxOutputTokens: MAXIMO_TOKENS,
+      // Removida completamente a trava de maxOutputTokens para usar o limite máximo nativo de 8192 tokens
     },
   };
 
@@ -87,7 +86,7 @@ async function executarChamadaGeminiTexto(promptCompleto) {
 
 /**
  * Gera a resposta baseada em IA formatada especificamente para o TÉCNICO ou ANALISTA DO SICAR.
- * Foco na vasta inteligência do Gemini sobre o Código Florestal, com tamanho equilibrado e explicação completa.
+ * Foco na vasta inteligência do Gemini sobre o Código Florestal, com explicação completa e rica.
  */
 export async function gerarRespostaParaTecnico({ pergunta, contextoImovel, contextoAlerta }) {
   const promptSistema = `Você é um assistente especialista no Sistema de Cadastro Ambiental Rural (SICAR) e no Código Florestal Brasileiro (Lei 12.651/2012).
@@ -95,7 +94,7 @@ Objetivo: Responder à dúvida do analista/técnico sobre o imóvel e o alerta d
 Dados do Imóvel: ${JSON.stringify(contextoImovel)}
 Dados do Alerta: ${JSON.stringify(contextoAlerta)}
 
-Regras: Responda em português (pt-BR), de forma clara, completa e objetiva. Evite muralhas de texto excessivas, mas forneça uma explicação robusta com início, meio e fim (cerca de 2 a 3 parágrafos explicativos ou tópicos bem detalhados), citando a base legal apropriada do Código Florestal.
+Regras: Responda em português (pt-BR), de forma completa, rica em detalhes e profunda. Estruture sua resposta com parágrafos explicativos claros e tópicos bem detalhados. Cite artigos específicos da Lei 12.651/2012 (Código Florestal) e explique o passo a passo completo da solução recomendada para o imóvel. Não faça cortes na explicação.
 
 Pergunta do usuário: ${pergunta}`;
 
@@ -104,7 +103,7 @@ Pergunta do usuário: ${pergunta}`;
 
 /**
  * Gera a resposta baseada em IA formatada especificamente para o PRODUTOR RURAL (ex: Seu Raimundo).
- * Foco em linguagem extremamente humana, simples, calorosa e sem jargões complexos.
+ * Foco em linguagem extremamente humana, simples, calorosa e completa.
  */
 export async function gerarRespostaParaProdutor({ pergunta, contextoImovel, contextoAlerta, trechosLegislacao }) {
   const trechosFormatados = (trechosLegislacao || [])
@@ -123,7 +122,7 @@ Objetivo:
 2. Explicar o problema de forma incrivelmente simples, traduzindo qualquer jargão técnico para o cotidiano do campo.
 3. Explicar exatamente o que ele precisa fazer para resolver a situação (ex: procurar o técnico do sindicato ou engenheiro para ajustar o polígono ou compensar a reserva legal), tranquilizando-o sobre multas e crédito rural.
 4. Jamais utilize termos em inglês, códigos cruas ou citações de artigos de lei difíceis de ler. Traduza a essência da lei para linguagem cidadã.
-5. Responda de forma completa, clara e amigável em português (pt-BR). Seja direto, mas forneça uma explicação com início, meio e fim, no tamanho ideal de uma mensagem de WhatsApp explicativa.
+5. Responda de forma completa, clara e atenciosa em português (pt-BR). Forneça uma explicação inteira, passo a passo, no tamanho ideal de uma boa conversa explicativa de WhatsApp.
 
 Dúvida enviada pelo produtor no WhatsApp: "${pergunta}"`;
 
