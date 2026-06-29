@@ -1,6 +1,6 @@
 /**
  * Componente do Assistente de IA ao vivo (Fase 4).
- * Interface premium de chatbot lateral com balões de conversa,
+ * Interface premium flutuante (bolinha expansível com botão fechar X),
  * mantendo o design system do Gov.br e regras estritas de Clean Code.
  */
 import { useState, useCallback } from "react";
@@ -17,6 +17,7 @@ const CABECALHO_CONTEUDO = "application/json";
 const MENSAGEM_INICIAL_IA = `Olá! Sou o Assistente de IA do CAR. Estou pronto para tirar suas dúvidas sobre penalidades, base legal ou impactos no crédito rural específicos para o ${imovel.nome}.`;
 
 export function AssistenteIA() {
+  const [aberto, definirAberto] = useState(false);
   const [mensagens, definirMensagens] = useState<Mensagem[]>([
     { id: "1", remetente: "ia", texto: MENSAGEM_INICIAL_IA },
   ]);
@@ -72,12 +73,32 @@ export function AssistenteIA() {
     }
   }, [pergunta]);
 
+  if (!aberto) {
+    return (
+      <button
+        className="assistente-ia__bolinha"
+        onClick={() => definirAberto(true)}
+        title="Abrir Assistente de IA"
+      >
+        <span className="assistente-ia__bolinha-icone">✨</span>
+        <span className="assistente-ia__bolinha-texto">Assistente IA</span>
+      </button>
+    );
+  }
+
   return (
-    <section className="assistente-ia">
+    <section className="assistente-ia assistente-ia--flutuante">
       <div className="assistente-ia__cabecalho">
         <span className="assistente-ia__icone">✨</span>
         <h3 className="assistente-ia__titulo">Assistente de IA</h3>
         <span className="assistente-ia__status">Ao Vivo</span>
+        <button
+          className="assistente-ia__botao-fechar"
+          onClick={() => definirAberto(false)}
+          title="Fechar Assistente"
+        >
+          ✖
+        </button>
       </div>
 
       <div className="assistente-ia__chat">

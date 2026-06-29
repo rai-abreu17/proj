@@ -55,8 +55,8 @@ export function TelaDoTecnico() {
       <CabecalhoGovBr />
       <TrilhaEtapas />
 
-      <main className="layout-duplo">
-        <div className="layout-duplo__principal">
+      <main className="layout-tecnico">
+        <div className="layout-tecnico__conteudo">
           <ResumoImovel />
           <CardAlerta />
 
@@ -97,11 +97,10 @@ export function TelaDoTecnico() {
             💡 <em><strong>Nota conceitual:</strong> O dossiê gera um pacote de evidências que acelera a conferência do analista e reduz o tempo de reanálise. A decisão final permanece do órgão ambiental. A solução funciona de forma autônoma; a integração com a etapa de Alertas e Pendências do SICAR é uma evolução futura, não um requisito.</em>
           </div>
         </div>
-
-        <aside className="layout-duplo__lateral">
-          <AssistenteIA />
-        </aside>
       </main>
+
+      {/* Copiloto Flutuante (Assistente IA) */}
+      <AssistenteIA />
 
       {/* Selo discreto de protótipo indicando autonomia */}
       <div className="selo-prototipo" title="A solução funciona de forma autônoma. A integração com a etapa de Alertas e Pendências é uma evolução futura, não um requisito.">
