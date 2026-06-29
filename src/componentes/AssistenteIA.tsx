@@ -1,29 +1,49 @@
 /**
  * Componente do Assistente de IA ao vivo (Fase 4).
- * Permite ao técnico tirar dúvidas em tempo real sobre o imóvel e o alerta.
+ * Interface premium de chatbot lateral com balões de conversa,
+ * mantendo o design system do Gov.br e regras estritas de Clean Code.
  */
 import { useState, useCallback } from "react";
 import { imovel, alerta } from "../dados/mockDados";
 
+interface Mensagem {
+  id: string;
+  remetente: "usuario" | "ia";
+  texto: string;
+}
+
+const METODO_POST = "POST";
+const CABECALHO_CONTEUDO = "application/json";
+const MENSAGEM_INICIAL_IA = `Olá! Sou o Assistente de IA do CAR. Estou pronto para tirar suas dúvidas sobre penalidades, base legal ou impactos no crédito rural específicos para o ${imovel.nome}.`;
+
 export function AssistenteIA() {
+  const [mensagens, definirMensagens] = useState<Mensagem[]>([
+    { id: "1", remetente: "ia", texto: MENSAGEM_INICIAL_IA },
+  ]);
   const [pergunta, definirPergunta] = useState("");
-  const [resposta, definirResposta] = useState("");
   const [carregando, definirCarregando] = useState(false);
   const [erro, definirErro] = useState("");
 
-  /** Envia a pergunta para a função serverless */
+  /** Envia a pergunta para a função serverless e atualiza o histórico do chat */
   const enviarPergunta = useCallback(async (textoConsulta?: string) => {
     const consulta = textoConsulta || pergunta;
     if (!consulta.trim()) return;
 
+    const novaMensagemUsuario: Mensagem = {
+      id: String(Date.now()),
+      remetente: "usuario",
+      texto: consulta,
+    };
+
+    definirMensagens((mensagensAnteriores) => [...mensagensAnteriores, novaMensagemUsuario]);
+    definirPergunta("");
     definirCarregando(true);
     definirErro("");
-    definirResposta("");
 
     try {
       const requisicao = await fetch("/api/tirar-duvida", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: METODO_POST,
+        headers: { "Content-Type": CABECALHO_CONTEUDO },
         body: JSON.stringify({
           pergunta: consulta,
           contextoImovel: imovel,
@@ -37,9 +57,15 @@ export function AssistenteIA() {
         throw new Error(dados.erro || "Erro ao consultar o assistente de IA.");
       }
 
-      definirResposta(dados.resposta);
+      const novaMensagemIA: Mensagem = {
+        id: String(Date.now() + 1),
+        remetente: "ia",
+        texto: dados.resposta,
+      };
+
+      definirMensagens((mensagensAnteriores) => [...mensagensAnteriores, novaMensagemIA]);
     } catch (e) {
-      const erroMensagem = e instanceof Error ? e.message : "Erro desconhecido";
+      const erroMensagem = e instanceof Error ? e.message : "Erro desconhecido ao consultar IA.";
       definirErro(erroMensagem);
     } finally {
       definirCarregando(false);
@@ -50,45 +76,61 @@ export function AssistenteIA() {
     <section className="assistente-ia">
       <div className="assistente-ia__cabecalho">
         <span className="assistente-ia__icone">✨</span>
-        <h3 className="assistente-ia__titulo">Tirar dúvida com IA sobre este imóvel</h3>
+        <h3 className="assistente-ia__titulo">Assistente de IA</h3>
+        <span className="assistente-ia__status">Ao Vivo</span>
       </div>
 
-      <div className="assistente-ia__corpo">
-        <p className="assistente-ia__descricao">
-          Faça perguntas sobre penalidades, base legal ou impactos no crédito rural específicos para o <strong>{imovel.nome}</strong>.
-        </p>
+      <div className="assistente-ia__chat">
+        {mensagens.map((msg) => (
+          <div
+            key={msg.id}
+            className={`assistente-ia__bolha assistente-ia__bolha--${msg.remetente}`}
+          >
+            <div className="assistente-ia__bolha-cabecalho">
+              {msg.remetente === "ia" ? "🤖 Inteligência Artificial" : "👤 Você"}
+            </div>
+            {msg.texto}
+          </div>
+        ))}
 
-        {/* Sugestões rápidas */}
+        {carregando && (
+          <div className="assistente-ia__carregando">
+            <div className="assistente-ia__spinner" />
+            <span>Analisando legislação e dados SICAR...</span>
+          </div>
+        )}
+
+        {erro && (
+          <div className="assistente-ia__erro">
+            ⚠️ <strong>Erro:</strong> {erro}
+          </div>
+        )}
+      </div>
+
+      <div className="assistente-ia__rodape">
         <div className="assistente-ia__sugestoes">
           <span className="assistente-ia__sugestoes-rotulo">Perguntas rápidas:</span>
           <button
             className="assistente-ia__botao-sugestao"
-            onClick={() => {
-              definirPergunta("Qual a multa prevista se o produtor não corrigir a Reserva Legal?");
-              enviarPergunta("Qual a multa prevista se o produtor não corrigir a Reserva Legal?");
-            }}
+            onClick={() => enviarPergunta("Qual a multa prevista se o produtor não corrigir a Reserva Legal?")}
             disabled={carregando}
           >
             Qual a multa se não corrigir?
           </button>
           <button
             className="assistente-ia__botao-sugestao"
-            onClick={() => {
-              definirPergunta("O déficit de Reserva Legal impacta no acesso a crédito rural no banco?");
-              enviarPergunta("O déficit de Reserva Legal impacta no acesso a crédito rural no banco?");
-            }}
+            onClick={() => enviarPergunta("O déficit de Reserva Legal impacta no acesso a crédito rural no banco?")}
             disabled={carregando}
           >
             Impacta no crédito rural?
           </button>
         </div>
 
-        {/* Campo de busca */}
         <div className="assistente-ia__formulario">
           <input
             type="text"
             className="assistente-ia__entrada"
-            placeholder="Digite sua dúvida sobre o alerta ou a legislação..."
+            placeholder="Digite sua dúvida sobre a lei..."
             value={pergunta}
             onChange={(e) => definirPergunta(e.target.value)}
             onKeyDown={(e) => {
@@ -101,33 +143,9 @@ export function AssistenteIA() {
             onClick={() => enviarPergunta()}
             disabled={carregando || !pergunta.trim()}
           >
-            {carregando ? "Consultando..." : "Perguntar"}
+            {carregando ? "..." : "Enviar"}
           </button>
         </div>
-
-        {/* Exibição do loading, erro ou resposta */}
-        {carregando && (
-          <div className="assistente-ia__carregando">
-            <div className="assistente-ia__spinner" />
-            <span>Analisando legislação e dados do SICAR...</span>
-          </div>
-        )}
-
-        {erro && (
-          <div className="assistente-ia__erro">
-            ⚠️ <strong>Erro:</strong> {erro}
-          </div>
-        )}
-
-        {resposta && !carregando && (
-          <div className="assistente-ia__resposta">
-            <div className="assistente-ia__resposta-cabecalho">
-              <span className="assistente-ia__resposta-icone">🤖</span>
-              <strong>Resposta do Assistente Virtual:</strong>
-            </div>
-            <div className="assistente-ia__resposta-texto">{resposta}</div>
-          </div>
-        )}
       </div>
     </section>
   );
