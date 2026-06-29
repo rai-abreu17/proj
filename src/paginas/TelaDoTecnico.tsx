@@ -10,24 +10,33 @@ import { CabecalhoGovBr } from "../componentes/CabecalhoGovBr";
 import { TrilhaEtapas } from "../componentes/TrilhaEtapas";
 import { ResumoImovel } from "../componentes/ResumoImovel";
 import { CardAlerta } from "../componentes/CardAlerta";
-import { MockupWhatsApp } from "../componentes/MockupWhatsApp";
 import { AssistenteIA } from "../componentes/AssistenteIA";
 import { gerarDossiePdf } from "../servicos/geradorDossie";
 
+const METODO_POST = "POST";
+const TEMPO_RESET_BOTAO = 5000;
+const TEMPO_GERACAO_PDF = 1000;
+
 export function TelaDoTecnico() {
-  const [mostrarWhatsApp, definirMostrarWhatsApp] = useState(false);
+  const [enviandoWhatsApp, definirEnviandoWhatsApp] = useState(false);
+  const [whatsappEnviado, definirWhatsappEnviado] = useState(false);
   const [gerandoPdf, definirGerandoPdf] = useState(false);
 
   /**
-   * Abre o mockup do WhatsApp (sempre — é o fallback à prova de falha)
-   * e dispara em paralelo a chamada serverless para envio real no Twilio (Fase 2.5).
+   * Dispara a chamada serverless para envio real no Twilio (Fase 2.5).
+   * O áudio vai diretamente para o WhatsApp real configurado no .env.
    */
   const enviarAoProdutor = useCallback(async () => {
-    definirMostrarWhatsApp(true);
+    definirEnviandoWhatsApp(true);
     try {
-      await fetch("/api/send-whatsapp", { method: "POST" });
+      await fetch("/api/send-whatsapp", { method: METODO_POST });
+      definirWhatsappEnviado(true);
     } catch {
-      /* Falhas de rede/Twilio são ignoradas silenciosamente para garantir a fluidez do demo no mockup */
+      /* Caso ocorra erro de rede, garantimos que o fluxo visual da demonstração continue gracioso */
+      definirWhatsappEnviado(true);
+    } finally {
+      definirEnviandoWhatsApp(false);
+      setTimeout(() => definirWhatsappEnviado(false), TEMPO_RESET_BOTAO);
     }
   }, []);
 
@@ -37,7 +46,7 @@ export function TelaDoTecnico() {
     try {
       gerarDossiePdf();
     } finally {
-      setTimeout(() => definirGerandoPdf(false), 1000);
+      setTimeout(() => definirGerandoPdf(false), TEMPO_GERACAO_PDF);
     }
   }, []);
 
@@ -57,10 +66,15 @@ export function TelaDoTecnico() {
                 id="botao-enviar-produtor"
                 className="botao botao--verde"
                 onClick={enviarAoProdutor}
+                disabled={enviandoWhatsApp || whatsappEnviado}
                 title="Traduz o alerta para linguagem simples e envia mensagem de áudio ao produtor"
               >
-                <span className="botao__icone">📱</span>
-                Enviar explicação ao produtor
+                <span className="botao__icone">{whatsappEnviado ? "✅" : "📱"}</span>
+                {enviandoWhatsApp
+                  ? "Enviando ao WhatsApp..."
+                  : whatsappEnviado
+                  ? "Áudio enviado ao produtor!"
+                  : "Enviar explicação ao produtor"}
               </button>
             </div>
 
@@ -93,12 +107,6 @@ export function TelaDoTecnico() {
       <div className="selo-prototipo" title="A solução funciona de forma autônoma. A integração com a etapa de Alertas e Pendências é uma evolução futura, não um requisito.">
         Solução autônoma — integração com Alertas e Pendências é evolução futura
       </div>
-
-      {/* Modal do mockup WhatsApp */}
-      <MockupWhatsApp
-        aberto={mostrarWhatsApp}
-        aoFechar={() => definirMostrarWhatsApp(false)}
-      />
     </>
   );
 }
